@@ -1,0 +1,94 @@
+refer to : https://dreamcreator108.com/dreams/centos-build-ss-libev/
+
+
+yum install fail2ban -y
+systemctl enable fail2ban
+
+vi /etc/fail2ban/jail.local
+[DEFAULT]
+# Ban hosts for one hour:
+bantime = 43200
+findtime = 600
+maxretry = 1
+
+# Override /etc/fail2ban/jail.d/00-firewalld.conf:
+banaction = iptables-multiport
+
+[sshd]
+enabled = true
+
+systemctl restart fail2ban
+
+fail2ban-client status
+fail2ban-client status sshd
+【install 】
+
+yum install git vim wget -y
+yum install epel-release -y
+yum install gcc gettext autoconf libtool automake make pcre-devel asciidoc xmlto c-ares-devel libev-devel libsodium-devel mbedtls-devel -y
+
+git clone https://github.com/shadowsocks/shadowsocks-libev.git
+cd shadowsocks-libev
+git submodule update --init --recursive
+
+./autogen.sh && ./configure --prefix=/usr && make
+make install 
+
+git clone https://github.com/shadowsocks/simple-obfs.git
+cd simple-obfs
+git submodule update --init --recursive
+./autogen.sh
+./configure && make
+make install
+
+【configuration】
+mkdir -p /etc/shadowsocks-libev
+vim /etc/shadowsocks-libev/config.json
+
+{
+	"server":["::0","0.0.0.0"],
+	"server_port":8080,
+	"local_port":1080,
+	"password":"NeoJingdong3#@",
+	"timeout":60,
+	"method":"aes-256-gcm",
+	"plugin":"obfs-server",
+	"plugin_opts":"obfs=tls"
+}
+
+vi /etc/systemd/system/shadowsocks.service
+
+[Unit]
+Description=Shadowsocks Server
+After=network.target
+[Service]
+ExecStart=/usr/local/bin/ss-server -c /etc/shadowsocks-libev/config.json -u
+Restart=on-abort
+[Install]
+WantedBy=multi-user.target
+
+
+systemctl enable shadowsocks
+systemctl start shadowsocks
+
+
+
+
+【bbr加速】
+yum update  
+
+rpm --import https://www.elrepo.org/RPM-GPG-KEY-elrepo.org  
+rpm -Uvh http://www.elrepo.org/elrepo-release-7.0-2.el7.elrepo.noarch.rpm  
+yum --enablerepo=elrepo-kernel install kernel-ml -y  
+
+
+vi /etc/sysctl.conf  
+
+net.core.default_qdisc = fq  
+net.ipv4.tcp_congestion_control = bbr 
+
+sysctl -p
+
+egrep ^menuentry /etc/grub2.cfg | cut -f 2 -d \'  
+grub2-set-default 0  
+reboot
